@@ -36,6 +36,7 @@ import NCI60
 import combo
 import candle
 import pdb
+import time
 
 logger = logging.getLogger(__name__)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -694,22 +695,15 @@ def run(params):
     train_steps = int(loader.n_train / args.batch_size)
     val_steps = int(loader.n_val / args.batch_size)
 
-    model = build_model(loader, args, verbose=True)
+    model = keras.models.load_model('saved.model.h5', compile=False)
+    model.load_weights('saved.weights.h5')
     model.summary()
+    x_val_list = loader.load_data()[0]
+
+    t_start = time.time()
+    model.predict_on_batch(x_val_list)
+    lat_ms = (time.time() - t_start) * 1000
     pdb.set_trace()
-    # candle.plot_model(model, to_file=prefix+'.model.png', show_shapes=True)
-
-    if args.cp:
-        model_json = model.to_json()
-        with open(prefix+'.model.json', 'w') as f:
-            print(model_json, file=f)
-
-    def warmup_scheduler(epoch):
-        lr = args.learning_rate or base_lr * args.batch_size/100
-        if epoch <= 5:
-            K.set_value(model.optimizer.lr, (base_lr * (5-epoch) + lr * epoch) / 5)
-        logger.debug('Epoch {}: lr={}'.format(epoch, K.get_value(model.optimizer.lr)))
-        return K.get_value(model.optimizer.lr)
 
     df_pred_list = []
 

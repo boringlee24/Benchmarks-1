@@ -14,7 +14,7 @@ from keras.utils import get_custom_objects
 from tqdm import tqdm
 
 import NCI60
-
+import pdb
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -195,6 +195,7 @@ def run():
 
         preds = []
         for k in range(n):
+            pdb.set_trace()
             y_pred = model.predict(x_all_list, batch_size=args.batch_size, verbose=0).flatten()
             preds.append(y_pred)
             df_all.loc[i*n+k:(j-1)*n+k:n, 'PredGrowth'] = y_pred

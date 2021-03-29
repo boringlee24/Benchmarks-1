@@ -1,0 +1,242 @@
+[
+    {
+        "experiment_id": "EXP000",
+        "run_id": "RUN000",
+        "parameters": [
+            "cell_features: ['expression']",
+            "drug_features: ['descriptors']",
+            "dense: [1000, 1000, 1000]",
+            "dense_feature_layers: [1000, 1000, 1000]",
+            "activation: relu",
+            "loss: mse",
+            "optimizer: adam",
+            "scaling: std",
+            "dropout: 0",
+            "epochs: 10",
+            "batch_size: 32",
+            "val_split: 0.2",
+            "cv: 1",
+            "cv_partition: overlapping",
+            "max_val_loss: 1.0",
+            "learning_rate: None",
+            "base_lr: None",
+            "residual: False",
+            "reduce_lr: False",
+            "warmup_lr: False",
+            "batch_normalization: False",
+            "feature_subsample: 0",
+            "rng_seed: 2017",
+            "save_path: save/combo",
+            "gen: False",
+            "use_combo_score: False",
+            "verbose: None",
+            "timeout: 3600",
+            "logfile: None",
+            "train_bool: True",
+            "experiment_id: EXP000",
+            "run_id: RUN000",
+            "shuffle: False",
+            "profiling: False",
+            "use_landmark_genes: True",
+            "preprocess_rnaseq: none",
+            "response_url: None",
+            "cp: True",
+            "tb: True",
+            "use_mean_growth: False",
+            "exclude_cells: []",
+            "exclude_drugs: []",
+            "data_type: <class 'numpy.float32'>",
+            "output_dir: /home/ubuntu/GIT/Benchmarks-1/Pilot1/Combo/Output/EXP000/RUN000",
+            "trainable_params: 13791001",
+            "non_trainable_params: 0",
+            "total_params: 13791001"
+        ],
+        "start_time": "2021-03-29 19:32:13.235279",
+        "status": "Started"
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.159031567676113
+        },
+        "validation_loss": {
+            "set": 0.0825072386905857
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 1/10, duration: 181.772025s, loss: 0.159031567676113, val_loss: 0.0825072386905857"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.07074793257435492
+        },
+        "validation_loss": {
+            "set": 0.05670487228662929
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 2/10, duration: 170.389403s, loss: 0.07074793257435492, val_loss: 0.05670487228662929"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.05203210803763983
+        },
+        "validation_loss": {
+            "set": 0.04429878605945423
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 3/10, duration: 170.103984s, loss: 0.05203210803763983, val_loss: 0.04429878605945423"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.040774136284717294
+        },
+        "validation_loss": {
+            "set": 0.04131565039269031
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 4/10, duration: 169.962337s, loss: 0.040774136284717294, val_loss: 0.04131565039269031"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.033923127330956676
+        },
+        "validation_loss": {
+            "set": 0.035185667502908594
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 5/10, duration: 170.351831s, loss: 0.033923127330956676, val_loss: 0.035185667502908594"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.0301494706472095
+        },
+        "validation_loss": {
+            "set": 0.031694833199637916
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 6/10, duration: 170.373031s, loss: 0.0301494706472095, val_loss: 0.031694833199637916"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.026905953879301392
+        },
+        "validation_loss": {
+            "set": 0.030114776030034967
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 7/10, duration: 171.46298s, loss: 0.026905953879301392, val_loss: 0.030114776030034967"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.025427626170283088
+        },
+        "validation_loss": {
+            "set": 0.0304274663942608
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 8/10, duration: 171.301832s, loss: 0.025427626170283088, val_loss: 0.0304274663942608"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.023343023287259797
+        },
+        "validation_loss": {
+            "set": 0.029009419875640752
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 9/10, duration: 170.638981s, loss: 0.023343023287259797, val_loss: 0.029009419875640752"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "status": {
+            "set": "Running"
+        },
+        "training_loss": {
+            "set": 0.021961640815589434
+        },
+        "validation_loss": {
+            "set": 0.02855148735944547
+        },
+        "run_progress": {
+            "add": [
+                "epoch: 10/10, duration: 170.76788s, loss: 0.021961640815589434, val_loss: 0.02855148735944547"
+            ]
+        }
+    },
+    {
+        "run_id": "RUN000",
+        "runtime_hours": {
+            "set": 0.47865124166666667
+        },
+        "end_time": {
+            "set": "2021-03-29 20:00:56.379749"
+        },
+        "status": {
+            "set": "Finished"
+        },
+        "date_modified": {
+            "set": "NOW"
+        }
+    }
+]
