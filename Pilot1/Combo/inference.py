@@ -37,6 +37,7 @@ import combo
 import candle
 import pdb
 import time
+import json
 
 logger = logging.getLogger(__name__)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -60,67 +61,6 @@ def set_seed(seed):
         #	intra_op_parallelism_threads=int(os.environ['NUM_INTRA_THREADS']))
         # sess = tf.Session(graph=tf.get_default_graph(), config=session_conf)
         # K.set_session(sess)
-
-
-def verify_path(path):
-    folder = os.path.dirname(path)
-    if folder and not os.path.exists(folder):
-        os.makedirs(folder)
-
-
-def set_up_logger(logfile, verbose):
-    verify_path(logfile)
-    fh = logging.FileHandler(logfile)
-    fh.setFormatter(logging.Formatter("[%(asctime)s %(process)d] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
-    fh.setLevel(logging.DEBUG)
-
-    sh = logging.StreamHandler()
-    sh.setFormatter(logging.Formatter(''))
-    sh.setLevel(logging.DEBUG if verbose else logging.INFO)
-
-    logger.setLevel(logging.DEBUG)
-    logger.addHandler(fh)
-    logger.addHandler(sh)
-
-
-def extension_from_parameters(args):
-    """Construct string for saving model with annotation of parameters"""
-    ext = ''
-    ext += '.A={}'.format(args.activation)
-    ext += '.B={}'.format(args.batch_size)
-    ext += '.E={}'.format(args.epochs)
-    ext += '.O={}'.format(args.optimizer)
-    # ext += '.LEN={}'.format(args.maxlen)
-    ext += '.LR={}'.format(args.learning_rate)
-    ext += '.CF={}'.format(''.join([x[0] for x in sorted(args.cell_features)]))
-    ext += '.DF={}'.format(''.join([x[0] for x in sorted(args.drug_features)]))
-    if args.feature_subsample > 0:
-        ext += '.FS={}'.format(args.feature_subsample)
-    if args.dropout > 0:
-        ext += '.DR={}'.format(args.dropout)
-    if args.warmup_lr:
-        ext += '.wu_lr'
-    if args.reduce_lr:
-        ext += '.re_lr'
-    if args.residual:
-        ext += '.res'
-    if args.use_landmark_genes:
-        ext += '.L1000'
-    if args.gen:
-        ext += '.gen'
-    if args.use_combo_score:
-        ext += '.scr'
-    if args.use_mean_growth:
-        ext += '.mg'
-    for i, n in enumerate(args.dense):
-        if n > 0:
-            ext += '.D{}={}'.format(i+1, n)
-    if args.dense_feature_layers != args.dense:
-        for i, n in enumerate(args.dense):
-            if n > 0:
-                ext += '.FD{}={}'.format(i+1, n)
-
-    return ext
 
 
 def discretize(y, bins=5):
@@ -436,216 +376,6 @@ class ComboDataLoader(object):
 
         return x_train_list, y_train, x_val_list, y_val, df_train, df_val
 
-
-class ComboDataGenerator(object):
-    """Generate training, validation or testing batches from loaded data
-    """
-    def __init__(self, data, partition='train', batch_size=32):
-        self.lock = threading.Lock()
-        self.data = data
-        self.partition = partition
-        self.batch_size = batch_size
-
-        if partition == 'train':
-            self.cycle = cycle(range(data.n_train))
-            self.num_data = data.n_train
-        elif partition == 'val':
-            self.cycle = cycle(range(data.total)[-data.n_val:])
-            self.num_data = data.n_val
-        else:
-            raise Exception('Data partition "{}" not recognized.'.format(partition))
-
-    def flow(self):
-        """Keep generating data batches
-        """
-        while 1:
-            self.lock.acquire()
-            indices = list(islice(self.cycle, self.batch_size))
-            self.lock.release()
-
-            df = self.data.df_response.iloc[indices, :]
-            y = df['GROWTH'].values
-
-            x_list = []
-
-            for fea in self.data.cell_features:
-                df_cell = getattr(self.data, self.data.cell_df_dict[fea])
-                df_x = pd.merge(df[['CELLNAME']], df_cell, on='CELLNAME', how='left')
-                x_list.append(df_x.drop(['CELLNAME'], axis=1).values)
-
-            for drug in ['NSC1', 'NSC2']:
-                for fea in self.data.drug_features:
-                    df_drug = getattr(self.data, self.data.drug_df_dict[fea])
-                    df_x = pd.merge(df[[drug]], df_drug, left_on=drug, right_on='NSC', how='left')
-                    x_list.append(df_x.drop([drug, 'NSC'], axis=1).values)
-
-            yield x_list, y
-
-
-def test_generator(loader):
-    gen = ComboDataGenerator(loader).flow()
-    x_list, y = next(gen)
-    for x in x_list:
-        print(x.shape)
-    print(y.shape)
-
-
-def test_loader(loader):
-    x_train_list, y_train, x_val_list, y_val = loader.load_data()
-    print('x_train shapes:')
-    for x in x_train_list:
-        print(x.shape)
-    print('y_train shape:', y_train.shape)
-
-    print('x_val shapes:')
-    for x in x_val_list:
-        print(x.shape)
-    print('y_val shape:', y_val.shape)
-
-
-def r2(y_true, y_pred):
-    SS_res =  K.sum(K.square(y_true - y_pred))
-    SS_tot = K.sum(K.square(y_true - K.mean(y_true)))
-    return (1 - SS_res/(SS_tot + K.epsilon()))
-
-
-def mae(y_true, y_pred):
-    return keras.metrics.mean_absolute_error(y_true, y_pred)
-
-
-def evaluate_prediction(y_true, y_pred):
-    mse = mean_squared_error(y_true, y_pred)
-    mae = mean_absolute_error(y_true, y_pred)
-    r2 = r2_score(y_true, y_pred)
-    corr, _ = pearsonr(y_true, y_pred)
-    return {'mse': mse, 'mae': mae, 'r2': r2, 'corr': corr}
-
-
-def log_evaluation(metric_outputs, description='Comparing y_true and y_pred:'):
-    logger.info(description)
-    for metric, value in metric_outputs.items():
-        logger.info('  {}: {:.4f}'.format(metric, value))
-
-
-#def plot_history(out, history, metric='loss', title=None):
-#    title = title or 'model {}'.format(metric)
-#    val_metric = 'val_{}'.format(metric)
-#    plt.figure(figsize=(8, 6))
-#    plt.plot(history.history[metric], marker='o')
-#    plt.plot(history.history[val_metric], marker='d')
-#    plt.title(title)
-#    plt.ylabel(metric)
-#    plt.xlabel('epoch')
-#    plt.legend(['train_{}'.format(metric), 'val_{}'.format(metric)], loc='upper center')
-#    png = '{}.plot.{}.png'.format(out, metric)
-#    plt.savefig(png, bbox_inches='tight')
-
-
-class LoggingCallback(Callback):
-    def __init__(self, print_fcn=print):
-        Callback.__init__(self)
-        self.print_fcn = print_fcn
-
-    def on_epoch_end(self, epoch, logs={}):
-        msg = "[Epoch: %i] %s" % (epoch, ", ".join("%s: %f" % (k, v) for k, v in sorted(logs.items())))
-        self.print_fcn(msg)
-
-
-class PermanentDropout(Dropout):
-    def __init__(self, rate, **kwargs):
-        super(PermanentDropout, self).__init__(rate, **kwargs)
-        self.uses_learning_phase = False
-
-    def call(self, x, mask=None):
-        if 0. < self.rate < 1.:
-            noise_shape = self._get_noise_shape(x)
-            x = K.dropout(x, self.rate, noise_shape)
-        return x
-
-
-class ModelRecorder(Callback):
-    def __init__(self, save_all_models=False):
-        Callback.__init__(self)
-        self.save_all_models = save_all_models
-        get_custom_objects()['PermanentDropout'] = PermanentDropout
-
-    def on_train_begin(self, logs={}):
-        self.val_losses = []
-        self.best_val_loss = np.Inf
-        self.best_model = None
-
-    def on_epoch_end(self, epoch, logs={}):
-        val_loss = logs.get('val_loss')
-        self.val_losses.append(val_loss)
-        if val_loss < self.best_val_loss:
-            self.best_model = keras.models.clone_model(self.model)
-            self.best_val_loss = val_loss
-
-
-def build_feature_model(input_shape, name='', dense_layers=[1000, 1000],
-                        activation='relu', residual=False,
-                        dropout_rate=0, permanent_dropout=True):
-    x_input = Input(shape=input_shape)
-    h = x_input
-    for i, layer in enumerate(dense_layers):
-        x = h
-        h = Dense(layer, activation=activation)(h)
-        if dropout_rate > 0:
-            if permanent_dropout:
-                h = PermanentDropout(dropout_rate)(h)
-            else:
-                h = Dropout(dropout_rate)(h)
-        if residual:
-            try:
-                h = keras.layers.add([h, x])
-            except ValueError:
-                pass
-    model = Model(x_input, h, name=name)
-    return model
-
-
-def build_model(loader, args, verbose=False):
-    input_models = {}
-    dropout_rate = args.dropout
-    permanent_dropout = True
-    for fea_type, shape in loader.feature_shapes.items():
-        box = build_feature_model(input_shape=shape, name=fea_type,
-                                  dense_layers=args.dense_feature_layers,
-                                  dropout_rate=dropout_rate, permanent_dropout=permanent_dropout)
-        if verbose:
-            box.summary()
-        input_models[fea_type] = box
-
-    inputs = []
-    encoded_inputs = []
-    for fea_name, fea_type in loader.input_features.items():
-        shape = loader.feature_shapes[fea_type]
-        fea_input = Input(shape, name='input.'+fea_name)
-        inputs.append(fea_input)
-        input_model = input_models[fea_type]
-        encoded = input_model(fea_input)
-        encoded_inputs.append(encoded)
-
-    merged = keras.layers.concatenate(encoded_inputs)
-
-    h = merged
-    for i, layer in enumerate(args.dense):
-        x = h
-        h = Dense(layer, activation=args.activation)(h)
-        if dropout_rate > 0:
-            if permanent_dropout:
-                h = PermanentDropout(dropout_rate)(h)
-            else:
-                h = Dropout(dropout_rate)(h)
-        if args.residual:
-            try:
-                h = keras.layers.add([h, x])
-            except ValueError:
-                pass
-    output = Dense(1)(h)
-
-    return Model(inputs, output)
-
 def initialize_parameters(default_model = 'combo_default_model.txt'):
 
     # Build benchmark object
@@ -663,16 +393,27 @@ class Struct:
     def __init__(self, **entries):
         self.__dict__.update(entries)
 
+class GetInfBatchLat(keras.callbacks.Callback):
+    def __init__(self, args):
+        super(GetInfBatchLat, self).__init__()
+        self.lat_list = []
+        self.s_time = 0
+        self.testcase = args.testcase
+        self.batch_size = args.batch_size
+        
+    def on_predict_batch_begin(self, batch, logs=None):
+        self.s_time = time.time()
+
+    def on_predict_batch_end(self, batch, logs=None):
+        lat_ms = round((time.time() - self.s_time) * 1000,2)
+        self.lat_list.append(lat_ms)
+    def on_predict_end(self, logs=None):
+        with open(f'logs/{self.testcase}_{self.batch_size}.json', 'w') as f:
+            json.dump(self.lat_list, f, indent=4)
 
 def run(params):
     args = Struct(**params)
     set_seed(args.rng_seed)
-    ext = extension_from_parameters(args)
-    verify_path(args.save_path)
-    prefix = args.save_path + ext
-    logfile = args.logfile if args.logfile else prefix+'.log'
-    set_up_logger(logfile, args.verbose)
-    logger.info('Params: {}'.format(params))
 
     loader = ComboDataLoader(seed=args.rng_seed,
                              val_split=args.val_split,
@@ -686,141 +427,17 @@ def run(params):
                              exclude_drugs=args.exclude_drugs,
                              use_combo_score=args.use_combo_score,
                              cv_partition=args.cv_partition, cv=args.cv)
-    # test_loader(loader)
-    # test_generator(loader)
-
-    train_gen = ComboDataGenerator(loader, batch_size=args.batch_size).flow()
-    val_gen = ComboDataGenerator(loader, partition='val', batch_size=args.batch_size).flow()
-
-    train_steps = int(loader.n_train / args.batch_size)
-    val_steps = int(loader.n_val / args.batch_size)
 
     model = keras.models.load_model('saved.model.h5', compile=False)
     model.load_weights('saved.weights.h5')
     model.summary()
     x_val_list = loader.load_data()[0]
 
-    t_start = time.time()
-    model.predict_on_batch(x_val_list)
-    lat_ms = (time.time() - t_start) * 1000
-    pdb.set_trace()
 
-    df_pred_list = []
-
-    cv_ext = ''
-    cv = args.cv if args.cv > 1 else 1
-
-    fold = 0
-    while fold < cv:
-        if args.cv > 1:
-            logger.info('Cross validation fold {}/{}:'.format(fold+1, cv))
-            cv_ext = '.cv{}'.format(fold+1)
-
-        model = build_model(loader, args)
-
-        optimizer = optimizers.deserialize({'class_name': args.optimizer, 'config': {}})
-        base_lr = args.base_lr or K.get_value(optimizer.lr)
-        if args.learning_rate:
-            K.set_value(optimizer.lr, args.learning_rate)
-
-        model.compile(loss=args.loss, optimizer=optimizer, metrics=[mae, r2])
-
-        # calculate trainable and non-trainable params
-        params.update(candle.compute_trainable_params(model))
-
-        candle_monitor = candle.CandleRemoteMonitor(params=params)
-        timeout_monitor = candle.TerminateOnTimeOut(params['timeout'])
-
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5, min_lr=0.00001)
-        warmup_lr = LearningRateScheduler(warmup_scheduler)
-        checkpointer = ModelCheckpoint(prefix+cv_ext+'.weights.h5', save_best_only=True, save_weights_only=True)
-        tensorboard = TensorBoard(log_dir="tb/tb{}{}".format(ext, cv_ext))
-        history_logger = LoggingCallback(logger.debug)
-        model_recorder = ModelRecorder()
-
-        # callbacks = [history_logger, model_recorder]
-        callbacks = [candle_monitor, timeout_monitor, history_logger, model_recorder]
-        if args.reduce_lr:
-            callbacks.append(reduce_lr)
-        if args.warmup_lr:
-            callbacks.append(warmup_lr)
-        if args.cp:
-            callbacks.append(checkpointer)
-        if args.tb:
-            callbacks.append(tensorboard)
-
-        pdb.set_trace()
-        if args.gen:
-            history = model.fit_generator(train_gen, train_steps,
-                                          epochs=args.epochs,
-                                          callbacks=callbacks,
-                                          validation_data=val_gen, validation_steps=val_steps)
-            fold += 1
-        else:
-            if args.cv > 1:
-                x_train_list, y_train, x_val_list, y_val, df_train, df_val = loader.load_data_cv(fold)
-            else:
-                x_train_list, y_train, x_val_list, y_val, df_train, df_val = loader.load_data()
-
-            y_shuf = np.random.permutation(y_val)
-            log_evaluation(evaluate_prediction(y_val, y_shuf),
-                           description='Between random pairs in y_val:')
-            history = model.fit(x_train_list, y_train,
-                                batch_size=args.batch_size,
-                                shuffle=args.shuffle,
-                                epochs=args.epochs,
-                                callbacks=callbacks,
-                                validation_data=(x_val_list, y_val))
-
-        if args.cp:
-            model.load_weights(prefix+cv_ext+'.weights.h5')
-
-        if not args.gen:
-            y_val_pred = model.predict(x_val_list, batch_size=args.batch_size).flatten()
-            scores = evaluate_prediction(y_val, y_val_pred)
-            if args.cv > 1 and scores[args.loss] > args.max_val_loss:
-                logger.warn('Best val_loss {} is greater than {}; retrain the model...'.format(scores[args.loss], args.max_val_loss))
-                continue
-            else:
-                fold += 1
-            log_evaluation(scores)
-            df_val.is_copy = False
-            df_val['GROWTH_PRED'] = y_val_pred
-            df_val['GROWTH_ERROR'] = y_val_pred - y_val
-            df_pred_list.append(df_val)
-
-        if args.cp:
-            # model.save(prefix+'.model.h5')
-            model_recorder.best_model.save(prefix+'.model.h5')
-
-            # test reloadded model prediction
-            # new_model = keras.models.load_model(prefix+'.model.h5')
-            # new_model.load_weights(prefix+cv_ext+'.weights.h5')
-            # new_pred = new_model.predict(x_val_list, batch_size=args.batch_size).flatten()
-            # print('y_val:', y_val[:10])
-            # print('old_pred:', y_val_pred[:10])
-            # print('new_pred:', new_pred[:10])
-
-        candle.plot_history(prefix, history, 'loss')
-        candle.plot_history(prefix, history, 'r2')
-
-        if K.backend() == 'tensorflow':
-            K.clear_session()
-
-    if not args.gen:
-        if args.use_combo_score:
-            pred_fname = prefix + '.predicted.score.tsv'
-        elif args.use_mean_growth:
-            pred_fname = prefix + '.predicted.mean.growth.tsv'
-        else:
-            pred_fname = prefix + '.predicted.growth.tsv'
-        df_pred = pd.concat(df_pred_list)
-        df_pred.to_csv(pred_fname, sep='\t', index=False, float_format='%.4g')
-
-    logger.handlers = []
-
-    return history
-
+#    t_start = time.time()
+#    model.predict_on_batch(x_val_list)
+    model.predict(x_val_list, batch_size=args.batch_size, verbose=1, callbacks=[GetInfBatchLat(args)])
+#    lat_ms = (time.time() - t_start) * 1000
 
 def main():
     params = initialize_parameters()
@@ -829,5 +446,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-    if K.backend() == 'tensorflow':
-        K.clear_session()
+

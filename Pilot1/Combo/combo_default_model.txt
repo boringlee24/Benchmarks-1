@@ -26,6 +26,7 @@ save_path='save/combo'
 gen=False
 use_combo_score=False
 verbose = False
+testcase='test'
 
 [Monitor_Params]
 timeout=3600
