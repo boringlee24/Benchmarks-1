@@ -394,20 +394,26 @@ class Struct:
         self.__dict__.update(entries)
 
 class GetInfBatchLat(keras.callbacks.Callback):
-    def __init__(self, args):
+    def __init__(self, batch_size, testcase):
         super(GetInfBatchLat, self).__init__()
         self.lat_list = []
         self.s_time = 0
-        self.testcase = args.testcase
-        self.batch_size = args.batch_size
+        self.testcase = testcase
+        self.batch_size = batch_size
         
-    def on_predict_batch_begin(self, batch, logs=None):
-        self.s_time = time.time()
+#    def on_predict_batch_begin(self, batch, logs=None):
+#        self.s_time = time.time()
 
     def on_predict_batch_end(self, batch, logs=None):
-        lat_ms = round((time.time() - self.s_time) * 1000,2)
-        self.lat_list.append(lat_ms)
+        if self.s_time != 0:
+            lat_ms = round((time.time() - self.s_time) * 1000,2)
+            self.lat_list.append(lat_ms)
+        self.s_time = time.time()
     def on_predict_end(self, logs=None):
+        # remove highest percentile latencies (warmup)
+        outlier = np.percentile(self.lat_list,95)
+        filtered = [x for x in self.lat_list if x <= outlier]
+        self.lat_list = random.sample(filtered, 100) 
         with open(f'logs/{self.testcase}_{self.batch_size}.json', 'w') as f:
             json.dump(self.lat_list, f, indent=4)
 
@@ -433,11 +439,9 @@ def run(params):
     model.summary()
     x_val_list = loader.load_data()[0]
 
-
-#    t_start = time.time()
-#    model.predict_on_batch(x_val_list)
-    model.predict(x_val_list, batch_size=args.batch_size, verbose=1, callbacks=[GetInfBatchLat(args)])
-#    lat_ms = (time.time() - t_start) * 1000
+    for batch_size in range(10, 1001, 10):
+        print(f'testing CANDLE on batch size {batch_size}')
+        model.predict(x_val_list, batch_size=batch_size, verbose=1, callbacks=[GetInfBatchLat(batch_size, args.testcase)])
 
 def main():
     params = initialize_parameters()
