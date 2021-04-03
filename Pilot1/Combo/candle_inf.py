@@ -38,6 +38,7 @@ import candle
 import pdb
 import time
 import json
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -414,7 +415,8 @@ class GetInfBatchLat(keras.callbacks.Callback):
         outlier = np.percentile(self.lat_list,95)
         filtered = [x for x in self.lat_list if x <= outlier]
         self.lat_list = random.sample(filtered, 100) 
-        with open(f'logs/{self.testcase}_{self.batch_size}.json', 'w') as f:
+        Path("logs/candle").mkdir(parents=True, exist_ok=True)
+        with open(f'logs/candle/{self.testcase}_{self.batch_size}.json', 'w') as f:
             json.dump(self.lat_list, f, indent=4)
 
 def run(params):
