@@ -91,9 +91,8 @@ class GetInfBatchLat(keras.callbacks.Callback):
             self.lat_list = filtered
         else:
             self.lat_list = random.sample(filtered, 100)
-        Path("logs/resnet").mkdir(parents=True, exist_ok=True)
-
-        with open(f'logs/resnet/{self.testcase}_{self.batch_size}.json', 'w') as f:
+        Path("logs/{self.testcase}").mkdir(parents=True, exist_ok=True)
+        with open(f'logs/{self.testcase}/resnet_{self.batch_size}_1.json', 'w') as f:
             json.dump(self.lat_list, f, indent=4)
 
 # Convert class vectors to binary class matrices.
