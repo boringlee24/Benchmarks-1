@@ -415,7 +415,7 @@ class GetInfBatchLat(keras.callbacks.Callback):
         outlier = np.percentile(self.lat_list,95)
         filtered = [x for x in self.lat_list if x <= outlier]
         self.lat_list = random.sample(filtered, 100) 
-        Path("logs/{self.testcase}").mkdir(parents=True, exist_ok=True)
+        Path(f"logs/{self.testcase}").mkdir(parents=True, exist_ok=True)
         with open(f'logs/{self.testcase}/candle_{self.batch_size}_1.json', 'w') as f:
             json.dump(self.lat_list, f, indent=4)
 
@@ -441,7 +441,7 @@ def run(params):
     model.summary()
     x_val_list = loader.load_data()[0]
 
-    for batch_size in range(10, 1001, 10):
+    for batch_size in range(args.batch_min, args.batch_max, 10):
         print(f'testing CANDLE on batch size {batch_size}')
         model.predict(x_val_list, batch_size=batch_size, verbose=1, callbacks=[GetInfBatchLat(batch_size, args.testcase)])
 

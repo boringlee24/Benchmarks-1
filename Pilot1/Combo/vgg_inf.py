@@ -38,6 +38,9 @@ parser.add_argument('-b', '--batch_size', default=256, type=int,
 parser.add_argument('--model', metavar='MODEL', type=str, help='specific model name', default='vgg19')
 parser.add_argument('--lr', metavar='LEARNING_RATE', type=float, help='learning rate', default=0.001)
 parser.add_argument('--testcase', metavar='TC', type=str)
+parser.add_argument('--batch_min', default=10, type=int, metavar='MIN')
+parser.add_argument('--batch_max', default=501, type=int, metavar='MAX')
+
 args = parser.parse_args()
 
 
@@ -93,7 +96,7 @@ class GetInfBatchLat(keras.callbacks.Callback):
             self.lat_list = filtered
         else:
             self.lat_list = random.sample(filtered, 100)
-        Path("logs/{self.testcase}").mkdir(parents=True, exist_ok=True)
+        Path(f"logs/{self.testcase}").mkdir(parents=True, exist_ok=True)
         with open(f'logs/{self.testcase}/vgg_{self.batch_size}_1.json', 'w') as f:
             json.dump(self.lat_list, f, indent=4)
 
@@ -103,7 +106,7 @@ y_test = keras.utils.to_categorical(y_test, num_classes)
 
 model = tf.keras.models.load_model('vgg19.h5')
 
-for batch_size in range(10, 501, 10):
+for batch_size in range(args.batch_min, args.batch_max, 10):
     print(f'testing VGG on batch size {batch_size}')
     model.predict(x_train, batch_size=batch_size, verbose=1, callbacks=[GetInfBatchLat(batch_size, args.testcase)])
 
