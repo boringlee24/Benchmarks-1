@@ -13,6 +13,8 @@ lib_path2 = os.path.abspath(os.path.join(file_path, '..', '..', 'common'))
 sys.path.append(lib_path2)
 
 import candle
+import pdb
+pdb.set_trace()
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +63,7 @@ additional_definitions = [
     'help':'min batch size'},
 {'name': 'batch_max',
     'type':int,
-    'default':1001,
+    'default':501,
     'help':'max batch size'},
 {'name':'warmup_lr',
     'type':candle.str2bool,
